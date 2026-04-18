@@ -4,8 +4,8 @@ Browse, search, and open drum kits scraped from drumkits.site. Fuck you and your
 
 ```bash
 bun install
-bun dev      # dev server
-bun build    # build to dist/
+bun dev          # dev server
+bun run build    # build to dist/
 ```
 
 ## License
