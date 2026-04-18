@@ -1,0 +1,226 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #111;
+  --border: #222;
+  --text: #e0e0e0;
+  --muted: #555;
+  --accent: #c8ff00;
+  --accent-dim: rgba(200,255,0,0.08);
+  --row-hover: #161616;
+}
+
+html { font-size: 14px; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+
+.header-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+#count {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.search-wrap {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+#search {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.95rem;
+  padding: 9px 36px 9px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+#search::placeholder { color: var(--muted); }
+#search:focus { border-color: var(--accent); }
+
+.search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+#search:not(:placeholder-shown) ~ .search-clear {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+
+.filter-btn:hover { border-color: #444; color: var(--text); }
+
+.filter-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+main { flex: 1; padding: 0 24px 40px; }
+
+#list { margin-top: 12px; }
+
+.kit-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  animation: fadeIn 0.18s ease both;
+  transition: background 0.1s;
+  border-radius: 4px;
+  padding: 11px 6px;
+  margin: 0 -6px;
+}
+
+.kit-row:hover { background: var(--row-hover); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.kit-left { min-width: 0; }
+
+.kit-title {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.kit-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kit-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.badge-cat { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; }
+.badge-src-DRUM_KITS  { background: #1a1500; color: #998800; border: 1px solid #332b00; }
+.badge-src-KITS4BEATS { background: #001520; color: #006688; border: 1px solid #002233; }
+
+.open-icon {
+  color: var(--muted);
+  font-size: 0.85rem;
+  transition: color 0.1s;
+}
+
+.kit-row:hover .open-icon { color: var(--accent); }
+
+#empty {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  display: none;
+}
+
+#load-more {
+  display: none;
+  margin: 20px auto 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+  width: 100%;
+}
+
+#load-more:hover { border-color: #444; color: var(--text); }
+
+@media (max-width: 480px) {
+  header { padding: 18px 14px 14px; }
+  main { padding: 0 14px 40px; }
+  .badge-src-DRUM_KITS, .badge-src-KITS4BEATS { display: none; }
+}

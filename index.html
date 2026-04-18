@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drum Kits</title>
+<link rel="icon" href="https://cucks.qzz.io/yekub.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <h1>Drum Kits</h1>
+    <span id="count"></span>
+  </div>
+  <div class="search-wrap">
+    <input id="search" type="search" placeholder="Search kits…" autocomplete="off" spellcheck="false">
+    <button class="search-clear" id="search-clear" aria-label="Clear">✕</button>
+  </div>
+  <div class="filters" id="filters"></div>
+</header>
+
+<main>
+  <div id="list"></div>
+  <div id="empty">No kits found.</div>
+  <button id="load-more">Load more</button>
+</main>
+
+<script type="module" src="/src/app.ts"></script>
+</body>
+</html>
