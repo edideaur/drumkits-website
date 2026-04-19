@@ -4,8 +4,8 @@ import time
 
 import requests
 
-BASE_URL = "https://www.drumkits.site/api/kits"
-SIGN_URL = "https://www.drumkits.site/api/sign-request"
+BASE_URL = "https://kits.yekub2026.com/api/kits"
+SIGN_URL = "https://kits.yekub2026.com/api/sign-request"
 LIMIT = 100
 
 DATABASES = ["drum_kits", "kits4beats_drumkits", "reddit_kits"]
