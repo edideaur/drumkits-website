@@ -1,12 +1,15 @@
-import requests
+import argparse
 import json
 import time
 
+import requests
+
 BASE_URL = "https://www.drumkits.site/api/kits"
 SIGN_URL = "https://www.drumkits.site/api/sign-request"
-LIMIT = 50
-DB = "kits4beats_drumkits"
-OUTPUT_FILE = "kits4beats_drumkits.json"
+LIMIT = 100
+
+DATABASES = ["drum_kits", "kits4beats_drumkits", "reddit_kits"]
+OUTPUT_FILE = "public/kits.ndjson"
 
 SESSION = requests.Session()
 SESSION.headers.update({
@@ -26,14 +29,12 @@ SESSION.headers.update({
 
 
 def get_timestamp() -> str:
-    """Return current Unix timestamp in milliseconds as a string."""
     return str(int(time.time() * 1000))
 
 
 def fetch_signature(timestamp: str) -> str | None:
-    """Call the sign-request endpoint to get a fresh signature."""
     try:
-        print(f"  Fetching fresh signature for timestamp {timestamp}...")
+        print(f"  Fetching signature for timestamp {timestamp}...")
         resp = SESSION.post(
             SIGN_URL,
             headers={"content-type": "application/json"},
@@ -42,7 +43,6 @@ def fetch_signature(timestamp: str) -> str | None:
         )
         resp.raise_for_status()
         data = resp.json()
-        # Try common keys the API might use
         signature = (
             data.get("signature")
             or data.get("sign")
@@ -57,33 +57,25 @@ def fetch_signature(timestamp: str) -> str | None:
         return None
 
 
-def fetch_page(offset: int, signature: str, timestamp: str) -> tuple[dict | list | None, bool]:
-    """
-    Fetch a single page of kits.
-    Returns (data, needs_new_signature).
-    """
-    params = {"limit": LIMIT, "offset": offset, "db": DB}
+def fetch_page(offset: int, db: str, signature: str, timestamp: str) -> tuple[dict | list | None, bool]:
+    params = {"limit": LIMIT, "offset": offset, "db": db}
     headers = {
         "x-request-timestamp": timestamp,
         "x-request-signature": signature,
     }
     try:
         resp = SESSION.get(BASE_URL, params=params, headers=headers, timeout=15)
-
         if resp.status_code in (401, 403):
             print(f"  Auth error ({resp.status_code}), will refresh signature.")
-            return None, True  # signal to retry with new signature
-
+            return None, True
         resp.raise_for_status()
         return resp.json(), False
-
     except requests.RequestException as e:
         print(f"  Request error at offset {offset}: {e}")
         return None, False
 
 
 def get_items(data) -> list:
-    """Extract the list of kits from whatever shape the API returns."""
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
@@ -97,31 +89,29 @@ def get_items(data) -> list:
     return []
 
 
-def main():
+def scrape_db(db: str) -> list:
     all_kits = []
     offset = 0
 
-    # Get initial timestamp + signature
     timestamp = get_timestamp()
     signature = fetch_signature(timestamp)
     if not signature:
-        print("Could not obtain an initial signature. Exiting.")
-        return
+        print(f"Could not obtain signature for {db}. Skipping.")
+        return []
 
-    print(f"\nStarting fetch (db={DB}, limit={LIMIT})\n")
+    print(f"\nStarting fetch (db={db}, limit={LIMIT})\n")
 
     while True:
         print(f"Fetching offset={offset}...")
-        data, needs_refresh = fetch_page(offset, signature, timestamp)
+        data, needs_refresh = fetch_page(offset, db, signature, timestamp)
 
-        # Refresh signature once on auth failure, then retry
         if needs_refresh:
             timestamp = get_timestamp()
             signature = fetch_signature(timestamp)
             if not signature:
                 print("  Could not refresh signature. Stopping.")
                 break
-            data, needs_refresh = fetch_page(offset, signature, timestamp)
+            data, needs_refresh = fetch_page(offset, db, signature, timestamp)
             if needs_refresh or data is None:
                 print("  Still failing after signature refresh. Stopping.")
                 break
@@ -143,12 +133,33 @@ def main():
             break
 
         offset += LIMIT
-        time.sleep(0.5)  # polite delay
+        time.sleep(0.5)
 
-    print(f"\nSaving {len(all_kits)} kits to {OUTPUT_FILE}...")
+    print(f"  Scraped {len(all_kits)} kits from {db}")
+    return all_kits
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Scrape drumkits.site databases")
+    parser.add_argument(
+        "--db",
+        nargs="+",
+        default=DATABASES,
+        help=f"Database(s) to scrape (default: all). Choices: {DATABASES}",
+    )
+    args = parser.parse_args()
+
+    print(f"Writing to {OUTPUT_FILE}...\n")
+    total = 0
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_kits, f, indent=2, ensure_ascii=False)
-    print(f"Done! Saved to {OUTPUT_FILE}")
+        for db in args.db:
+            kits = scrape_db(db)
+            for kit in kits:
+                kit["_db"] = db
+                f.write(json.dumps(kit, ensure_ascii=False) + "\n")
+            total += len(kits)
+
+    print(f"\nDone! {total} kits saved to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":

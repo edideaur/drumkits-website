@@ -184,8 +184,9 @@ main { flex: 1; padding: 0 24px 40px; }
 }
 
 .badge-cat { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; }
-.badge-src-DRUM_KITS  { background: #1a1500; color: #998800; border: 1px solid #332b00; }
-.badge-src-KITS4BEATS { background: #001520; color: #006688; border: 1px solid #002233; }
+.badge-src-DRUM_KITS    { background: #1a1500; color: #998800; border: 1px solid #332b00; }
+.badge-src-KITS4BEATS  { background: #001520; color: #006688; border: 1px solid #002233; }
+.badge-src-REDDIT_KITS { background: #1a0a00; color: #cc4400; border: 1px solid #331a00; }
 
 .open-icon {
   color: var(--muted);
@@ -222,5 +223,5 @@ main { flex: 1; padding: 0 24px 40px; }
 @media (max-width: 480px) {
   header { padding: 18px 14px 14px; }
   main { padding: 0 14px 40px; }
-  .badge-src-DRUM_KITS, .badge-src-KITS4BEATS { display: none; }
+  .badge-src-DRUM_KITS, .badge-src-KITS4BEATS, .badge-src-REDDIT_KITS { display: none; }
 }

@@ -5,7 +5,7 @@ interface Kit {
   category: string
   download: string
   description: string
-  source: string
+  source_db: string
 }
 
 const PAGE = 100
@@ -17,11 +17,12 @@ let allKits: Kit[] = []
 let filtered: Kit[] = []
 let shown = 0
 let activeCategory = 'ALL'
+let activeSource = 'ALL'
 let fuse: Fuse<Kit> | null = null
 
 function idbOpen(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
+    const req = indexedDB.open(DB_NAME, 2)
     req.onupgradeneeded = e => (e.target as IDBOpenDBRequest).result.createObjectStore(DB_STORE)
     req.onsuccess = e => resolve((e.target as IDBOpenDBRequest).result)
     req.onerror = reject
@@ -110,11 +111,29 @@ function buildFilters(): void {
     btn.onclick = () => setCategory(cat, btn)
     wrap.appendChild(btn)
   })
+
+  const srcs = ['ALL', ...[...new Set(allKits.map(k => k.source_db).filter(Boolean))].sort()]
+  const srcWrap = document.getElementById('source-filters')!
+  srcWrap.innerHTML = ''
+  srcs.forEach(src => {
+    const btn = document.createElement('button')
+    btn.className = 'filter-btn' + (src === activeSource ? ' active' : '')
+    btn.textContent = src === 'ALL' ? 'All sources' : src.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+    btn.onclick = () => setSource(src, btn)
+    srcWrap.appendChild(btn)
+  })
 }
 
 function setCategory(cat: string, btn: HTMLButtonElement): void {
   activeCategory = cat
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+  document.querySelectorAll('#filters .filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  render()
+}
+
+function setSource(src: string, btn: HTMLButtonElement): void {
+  activeSource = src
+  document.querySelectorAll('#source-filters .filter-btn').forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
   render()
 }
@@ -147,7 +166,8 @@ function render(): void {
     base = allKits
   }
 
-  filtered = activeCategory === 'ALL' ? base : base.filter(k => k.category === activeCategory)
+  const catFiltered = activeCategory === 'ALL' ? base : base.filter(k => k.category === activeCategory)
+  filtered = activeSource === 'ALL' ? catFiltered : catFiltered.filter(k => k.source_db === activeSource)
   shown = 0
   document.getElementById('list')!.innerHTML = ''
   document.getElementById('count')!.textContent = filtered.length.toLocaleString() + ' kits'
@@ -172,7 +192,7 @@ function loadMore(): void {
       </div>
       <div class="kit-right">
         ${kit.category ? `<span class="badge badge-cat">${esc(kit.category)}</span>` : ''}
-        <span class="badge badge-src-${esc(kit.source)}">${esc(kit.source)}</span>
+        <span class="badge badge-src-${esc(kit.source_db)}">${esc(kit.source_db)}</span>
         <span class="open-icon">↗</span>
       </div>`
     list.appendChild(a)
