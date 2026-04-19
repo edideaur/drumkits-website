@@ -174,6 +174,25 @@ def scrape_gmeh(tab: str) -> list:
     return kits
 
 
+def kit_key(kit: dict) -> str:
+    return kit.get("download") or f"{kit.get('source_db') or kit.get('_db')}:{kit.get('title')}"
+
+
+def load_existing() -> dict[str, dict]:
+    existing = {}
+    try:
+        with open(OUTPUT_FILE, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    kit = json.loads(line)
+                    existing[kit_key(kit)] = kit
+        print(f"Loaded {len(existing)} existing kits from {OUTPUT_FILE}")
+    except FileNotFoundError:
+        print("No existing file, starting fresh.")
+    return existing
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape drumkits.site databases")
     parser.add_argument(
@@ -184,23 +203,30 @@ def main():
     )
     args = parser.parse_args()
 
-    print(f"Writing to {OUTPUT_FILE}...\n")
-    total = 0
-    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        for db in args.db:
-            kits = scrape_db(db)
-            for kit in kits:
-                kit["_db"] = db
-                f.write(json.dumps(kit, ensure_ascii=False) + "\n")
-            total += len(kits)
+    existing = load_existing()
+    new_kits = []
 
-        for tab in GMEH_TABS:
-            kits = scrape_gmeh(tab)
-            for kit in kits:
-                f.write(json.dumps(kit, ensure_ascii=False) + "\n")
-            total += len(kits)
+    for db in args.db:
+        for kit in scrape_db(db):
+            kit["_db"] = db
+            if kit_key(kit) not in existing:
+                new_kits.append(kit)
 
-    print(f"\nDone! {total} kits saved to {OUTPUT_FILE}")
+    for tab in GMEH_TABS:
+        for kit in scrape_gmeh(tab):
+            if kit_key(kit) not in existing:
+                new_kits.append(kit)
+
+    if not new_kits:
+        print("\nNo new kits found.")
+        return
+
+    print(f"\nAppending {len(new_kits)} new kits to {OUTPUT_FILE}...")
+    with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
+        for kit in new_kits:
+            f.write(json.dumps(kit, ensure_ascii=False) + "\n")
+
+    print(f"Done! Total in file: {len(existing) + len(new_kits)}")
 
 
 if __name__ == "__main__":

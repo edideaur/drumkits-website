@@ -8,6 +8,8 @@ interface Kit {
   source_db: string
   author?: string
   file_size?: string
+  categories?: string[]
+  genres?: string[]
 }
 
 const PAGE = 100
@@ -95,7 +97,7 @@ async function streamKits(): Promise<void> {
 
 function buildFuse(): void {
   fuse = new Fuse(allKits, {
-    keys: ['title', 'description'],
+    keys: ['title', 'description', 'author', 'categories', 'genres'],
     threshold: 0.35,
     minMatchCharLength: 2,
     ignoreLocation: true,
@@ -151,7 +153,10 @@ document.getElementById('search-clear')!.addEventListener('click', () => {
   render()
 })
 
-document.getElementById('load-more')!.addEventListener('click', loadMore)
+const sentinel = document.getElementById('load-more')!
+new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting && shown < filtered.length) loadMore()
+}, { rootMargin: '200px' }).observe(sentinel)
 
 function render(): void {
   const q = (document.getElementById('search') as HTMLInputElement).value.trim()
@@ -161,9 +166,10 @@ function render(): void {
     base = fuse.search(q).map(r => r.item)
   } else if (q) {
     const ql = q.toLowerCase()
-    base = allKits.filter(k =>
-      (k.title + ' ' + k.description).toLowerCase().includes(ql)
-    )
+    base = allKits.filter(k => {
+      const hay = [k.title, k.description, k.author, ...(k.categories ?? []), ...(k.genres ?? [])].join(' ')
+      return hay.toLowerCase().includes(ql)
+    })
   } else {
     base = allKits
   }
