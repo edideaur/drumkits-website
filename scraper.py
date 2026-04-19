@@ -35,29 +35,65 @@ def get_timestamp() -> str:
     return str(int(time.time() * 1000))
 
 
+PROXY_SOURCES = [
+    "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+    "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+    "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+]
+
+
+def get_proxies() -> list[dict]:
+    for url in PROXY_SOURCES:
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                continue
+            proxies = []
+            for line in resp.text.strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    addr = line if "://" in line else f"http://{line}"
+                    proxies.append({"http": addr, "https": addr})
+            if proxies:
+                print(f"  Loaded {len(proxies)} proxies from {url}")
+                return proxies
+        except Exception:
+            continue
+    print("  Could not load any proxy list.")
+    return []
+
+
 def fetch_signature(timestamp: str) -> str | None:
-    try:
-        print(f"  Fetching signature for timestamp {timestamp}...")
-        resp = SESSION.post(
-            SIGN_URL,
-            headers={"content-type": "application/json"},
-            json={"timestamp": timestamp},
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        signature = (
-            data.get("signature")
-            or data.get("sign")
-            or data.get("hash")
-            or data.get("token")
-        )
-        if not signature:
-            print(f"  Unexpected sign-request response: {data}")
-        return signature
-    except requests.RequestException as e:
-        print(f"  Failed to fetch signature: {e}")
-        return None
+    proxies_to_try = [{}] + get_proxies()  # try direct first, then proxies
+    for proxy in proxies_to_try:
+        try:
+            label = list(proxy.values())[0] if proxy else "direct"
+            print(f"  Fetching signature via {label}...")
+            resp = SESSION.post(
+                SIGN_URL,
+                headers={"content-type": "application/json"},
+                json={"timestamp": timestamp},
+                proxies=proxy or None,
+                timeout=10,
+            )
+            if resp.status_code == 403:
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            signature = (
+                data.get("signature")
+                or data.get("sign")
+                or data.get("hash")
+                or data.get("token")
+            )
+            if signature:
+                return signature
+            print(f"  Unexpected response: {data}")
+        except Exception:
+            continue
+    print("  All proxies exhausted, could not fetch signature.")
+    return None
 
 
 def fetch_page(offset: int, db: str, signature: str, timestamp: str) -> tuple[dict | list | None, bool]:
