@@ -6,6 +6,8 @@ interface Kit {
   download: string
   description: string
   source_db: string
+  author?: string
+  file_size?: string
 }
 
 const PAGE = 100
@@ -182,13 +184,15 @@ function loadMore(): void {
     const a = document.createElement('a')
     a.className = 'kit-row'
     a.href = kit.download || '#'
-    a.target = '_blank'
     a.rel = 'noopener noreferrer'
     a.style.animationDelay = `${i * 8}ms`
+    if (kit.download) {
+      a.onclick = e => { e.preventDefault(); downloadFile(kit.download) }
+    }
     a.innerHTML = `
       <div class="kit-left">
         <div class="kit-title">${esc(kit.title)}</div>
-        ${kit.description ? `<div class="kit-desc">${esc(kit.description)}</div>` : ''}
+        ${(kit.author || kit.file_size) ? `<div class="kit-desc">${[kit.author, kit.file_size].filter((x): x is string => !!x).map(esc).join(' · ')}</div>` : kit.description ? `<div class="kit-desc">${esc(kit.description)}</div>` : ''}
       </div>
       <div class="kit-right">
         ${kit.category ? `<span class="badge badge-cat">${esc(kit.category)}</span>` : ''}
@@ -202,6 +206,17 @@ function loadMore(): void {
   btn.style.display = shown < filtered.length ? 'block' : 'none'
   if (shown < filtered.length)
     btn.textContent = `Load more (${(filtered.length - shown).toLocaleString()} remaining)`
+}
+
+async function downloadFile(url: string): Promise<void> {
+  if (url.startsWith('https://r2.gangsloni.com')) {
+    const key = url.split('https://r2.gangsloni.com/')[1]
+    const r = await fetch(`https://api.g-meh.com/getURL?key=${key}`)
+    const json = await r.json()
+    window.open(json.url, '_blank', 'noopener,noreferrer')
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 }
 
 function esc(s: string): string {

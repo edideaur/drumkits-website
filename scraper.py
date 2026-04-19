@@ -9,6 +9,8 @@ SIGN_URL = "https://www.drumkits.site/api/sign-request"
 LIMIT = 100
 
 DATABASES = ["drum_kits", "kits4beats_drumkits", "reddit_kits"]
+GMEH_BASE = "https://gmeh.yekub2026.com/sources"
+GMEH_TABS = ["samples", "serum", "omnisphere", "nexus", "kontakt", "electrax", "arcade"]
 OUTPUT_FILE = "public/kits.ndjson"
 
 SESSION = requests.Session()
@@ -139,6 +141,38 @@ def scrape_db(db: str) -> list:
     return all_kits
 
 
+def scrape_gmeh(tab: str) -> list:
+    url = f"{GMEH_BASE}/{tab}.json"
+    print(f"\nFetching g-meh {tab} from {url}...")
+    try:
+        resp = SESSION.get(url, timeout=30)
+        resp.raise_for_status()
+        items = resp.json()
+    except requests.RequestException as e:
+        print(f"  Failed: {e}")
+        return []
+
+    kits = []
+    for item in items:
+        if item.get("disabled"):
+            continue
+        kits.append({
+            "title": item.get("title", ""),
+            "description": item.get("description", ""),
+            "category": item.get("type", tab).upper(),
+            "download": item.get("download_url", ""),
+            "author": item.get("author", ""),
+            "file_size": item.get("size", ""),
+            "genres": item.get("genres", []),
+            "categories": item.get("categories", []),
+            "image_id": item.get("image_id", ""),
+            "source_db": "GMEH",
+        })
+
+    print(f"  Got {len(kits)} items from {tab}")
+    return kits
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape drumkits.site databases")
     parser.add_argument(
@@ -156,6 +190,12 @@ def main():
             kits = scrape_db(db)
             for kit in kits:
                 kit["_db"] = db
+                f.write(json.dumps(kit, ensure_ascii=False) + "\n")
+            total += len(kits)
+
+        for tab in GMEH_TABS:
+            kits = scrape_gmeh(tab)
+            for kit in kits:
                 f.write(json.dumps(kit, ensure_ascii=False) + "\n")
             total += len(kits)
 
