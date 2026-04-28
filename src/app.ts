@@ -475,11 +475,31 @@ async function downloadFile(url: string): Promise<void> {
   const isExternal = !url.startsWith('https://r2.gangsloni.com')
   const source = isExternal ? 'external' : 'r2'
   track('download', { source, kit: url, filename: url.split('/').pop() ?? 'unknown' })
+  
   if (url.startsWith('https://r2.gangsloni.com')) {
     const key = url.split('https://r2.gangsloni.com/')[1]
     const r = await fetch(`https://api.g-meh.com/getURL?key=${key}`)
     const json = await r.json()
     window.open(json.url, '_blank', 'noopener,noreferrer')
+  } else if (url.includes('disk.yandex') || url.includes('yadi.sk')) {
+    const isYandex = url.includes('disk.yandex') || url.includes('yadi.sk')
+    if (isYandex) {
+      let publicKey = url
+      if (url.includes('yadi.sk')) {
+        publicKey = 'https://yadi.sk/d/' + url.split('yadi.sk/d/')[1]
+      } else if (url.includes('disk.yandex.com')) {
+        publicKey = 'https://disk.yandex.com/d/' + url.split('disk.yandex.com/d/')[1]
+      } else if (url.includes('disk.yandex.ru')) {
+        publicKey = 'https://disk.yandex.ru/d/' + url.split('disk.yandex.ru/d/')[1]
+      }
+      const r = await fetch(`https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicKey)}`)
+      const json = await r.json()
+      if (json.href) {
+        window.open(json.href, '_blank', 'noopener,noreferrer')
+        return
+      }
+    }
+    window.open(url, '_blank', 'noopener,noreferrer')
   } else {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
