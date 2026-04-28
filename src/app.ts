@@ -12,6 +12,7 @@ const DB_STORE = 'kits'
 const DB_KEY = 'all'
 const SETTINGS_KEY = 'drumkits_settings'
 const FAVES_KEY = 'drumkits_faves'
+const MANIFEST_KEY = 'drumkits_manifest'
 
 interface Settings {
   theme: 'dark' | 'light' | 'system'
@@ -68,6 +69,7 @@ function toggleFave(url: string): void {
   else faves.add(url)
   saveFaves()
   track('fave_toggle', { url: url.split('/').pop() ?? 'unknown', action: faves.has(url) ? 'add' : 'remove' })
+  buildFavesFilter()
   render()
 }
 
@@ -84,10 +86,11 @@ function buildFavesFilter(): void {
     el.className = 'filter-btn' + (activeFave === btn.value ? ' active' : '')
     el.textContent = btn.label
     el.onclick = () => {
-      activeFave = btn.value
+      activeFave = activeFave === btn.value ? 'ALL' : btn.value
       document.querySelectorAll('#fav-filters .filter-btn').forEach(b => b.classList.remove('active'))
-      el.classList.add('active')
-      track('filter_fave', { filter: btn.value })
+      if (activeFave === 'ALL') wrap.children[0]?.classList.add('active')
+      else wrap.children[1]?.classList.add('active')
+      track('filter_fave', { filter: activeFave })
       render()
     }
     wrap.appendChild(el)
@@ -189,6 +192,35 @@ function initSettingsPanel(): void {
     URL.revokeObjectURL(url)
     track('export_data')
   })
+  
+  document.getElementById('import-data')!.addEventListener('click', () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      const text = await file.text()
+      try {
+        const data = JSON.parse(text)
+        if (data.kits && Array.isArray(data.kits)) {
+          allKits = data.kits
+          await idbSave(allKits)
+          buildFuse()
+          buildFilters()
+          buildFavesFilter()
+          render()
+          track('import_data', { count: String(data.kits.length) })
+          alert(`Imported ${data.kits.length} kits successfully!`)
+        } else {
+          alert('Invalid data format: missing kits array')
+        }
+      } catch (e) {
+        alert('Failed to parse JSON file')
+      }
+    }
+    input.click()
+  })
 }
 
 function idbOpen(): Promise<IDBDatabase> {
@@ -220,14 +252,36 @@ async function idbSave(data: Kit[]): Promise<void> {
 
 async function init(): Promise<void> {
   const cached = await idbLoad()
-  if (cached) {
-    allKits = cached
-    buildFuse()
-    buildFilters()
-    buildFavesFilter()
-    render()
-    return
+  const storedManifest = localStorage.getItem(MANIFEST_KEY)
+  
+  try {
+    const manifestRes = await fetch('kits-manifest.json')
+    const manifest = await manifestRes.json()
+    const needsUpdate = !storedManifest || storedManifest !== manifest.hash
+    
+    if (cached && !needsUpdate) {
+      allKits = cached
+      buildFuse()
+      buildFilters()
+      buildFavesFilter()
+      render()
+      return
+    }
+    
+    if (needsUpdate) {
+      localStorage.setItem(MANIFEST_KEY, manifest.hash)
+    }
+  } catch {
+    if (cached) {
+      allKits = cached
+      buildFuse()
+      buildFilters()
+      buildFavesFilter()
+      render()
+      return
+    }
   }
+  
   await streamKits()
 }
 
@@ -297,18 +351,22 @@ function buildFilters(): void {
 }
 
 function setCategory(cat: string, btn: HTMLButtonElement): void {
-  activeCategory = cat
+  const newCat = activeCategory === cat ? 'ALL' : cat
+  activeCategory = newCat
   document.querySelectorAll('#filters .filter-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  track('filter_category', { category: cat })
+  if (newCat !== 'ALL') btn.classList.add('active')
+  else document.querySelector('#filters .filter-btn')?.classList.add('active')
+  track('filter_category', { category: newCat })
   render()
 }
 
 function setSource(src: string, btn: HTMLButtonElement): void {
-  activeSource = src
+  const newSrc = activeSource === src ? 'ALL' : src
+  activeSource = newSrc
   document.querySelectorAll('#source-filters .filter-btn').forEach(b => b.classList.remove('active'))
-  btn.classList.add('active')
-  track('filter_source', { source: src })
+  if (newSrc !== 'ALL') btn.classList.add('active')
+  else document.querySelector('#source-filters .filter-btn')?.classList.add('active')
+  track('filter_source', { source: newSrc })
   render()
 }
 
@@ -394,7 +452,12 @@ function loadMore(): void {
     favBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleFave(kit.download) })
     const link = a.querySelector('.open-link') as HTMLAnchorElement
     if (kit.download) {
-      link.addEventListener('click', (e) => { e.preventDefault(); downloadFile(kit.download) })
+      a.style.cursor = 'pointer'
+      a.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).closest('.fave-btn')) return
+        e.preventDefault()
+        downloadFile(kit.download)
+      })
     } else {
       link.style.pointerEvents = 'none'
       link.style.opacity = '0.3'
@@ -411,7 +474,7 @@ function loadMore(): void {
 async function downloadFile(url: string): Promise<void> {
   const isExternal = !url.startsWith('https://r2.gangsloni.com')
   const source = isExternal ? 'external' : 'r2'
-  track('download', { source, url: url.split('/').pop() ?? 'unknown' })
+  track('download', { source, kit: url, filename: url.split('/').pop() ?? 'unknown' })
   if (url.startsWith('https://r2.gangsloni.com')) {
     const key = url.split('https://r2.gangsloni.com/')[1]
     const r = await fetch(`https://api.g-meh.com/getURL?key=${key}`)

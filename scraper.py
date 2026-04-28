@@ -1,4 +1,5 @@
 import argparse
+import hashlib
 import json
 import time
 
@@ -12,6 +13,7 @@ DATABASES = ["drum_kits", "kits4beats_drumkits", "reddit_kits"]
 GMEH_BASE = "https://gmeh.yekub2026.com/sources"
 GMEH_TABS = ["samples", "serum", "omnisphere", "nexus", "kontakt", "electrax", "arcade"]
 OUTPUT_FILE = "public/kits.ndjson"
+MANIFEST_FILE = "public/kits-manifest.json"
 
 SESSION = requests.Session()
 SESSION.headers.update({
@@ -226,7 +228,20 @@ def main():
         for kit in new_kits:
             f.write(json.dumps(kit, ensure_ascii=False) + "\n")
 
-    print(f"Done! Total in file: {len(existing) + len(new_kits)}")
+    total_kits = len(existing) + len(new_kits)
+    print(f"Done! Total in file: {total_kits}")
+
+    with open(OUTPUT_FILE, "rb") as f:
+        file_hash = hashlib.sha256(f.read()).hexdigest()[:16]
+
+    manifest = {
+        "hash": file_hash,
+        "timestamp": int(time.time() * 1000),
+        "count": total_kits,
+    }
+    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
+        json.dump(manifest, f)
+    print(f"Updated manifest: {file_hash}")
 
 
 if __name__ == "__main__":
