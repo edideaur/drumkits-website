@@ -6,6 +6,7 @@
 <title>Drum Kits</title>
 <link rel="icon" href="https://cucks.qzz.io/yekub.png">
 <link rel="stylesheet" href="style.css">
+<script defer data-domain="kits.yekub2026.com" data-api="https://plausible.canine.tools/api/event" src="https://plausible.canine.tools/js/script.js"></script>
 </head>
 <body>
 
@@ -13,14 +14,64 @@
   <div class="header-top">
     <h1>Drum Kits</h1>
     <span id="count"></span>
+    <button id="settings-toggle" aria-label="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.75l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    </button>
   </div>
   <div class="search-wrap">
     <input id="search" type="search" placeholder="Search kits…" autocomplete="off" spellcheck="false">
-    <button class="search-clear" id="search-clear" aria-label="Clear">✕</button>
+    <button class="search-clear" id="search-clear" aria-label="Clear">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
   </div>
   <div class="filters" id="filters"></div>
   <div class="filters" id="source-filters" style="margin-top:6px"></div>
+  <div class="filters" id="fav-filters" style="margin-top:6px"></div>
 </header>
+
+<aside id="settings-panel" class="settings-panel" hidden>
+  <button class="settings-close" id="settings-close" aria-label="Close">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+  <div class="settings-section">
+    <h3>Appearance</h3>
+    <label class="setting"><span>Theme</span>
+      <select id="setting-theme"><option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option></select>
+    </label>
+    <label class="setting"><span>Accent Color</span>
+      <input type="color" id="setting-accent" value="#c8ff00"></input>
+    </label>
+  </div>
+  <div class="settings-section">
+    <h3>Analytics</h3>
+    <a id="analytics-link" href="https://plausible.canine.tools/kits.yekub2026.com/" target="_blank" rel="noopener" class="setting-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/>
+        <line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+      View Analytics
+    </a>
+    <label class="setting"><span>Disable Tracking</span><input type="checkbox" id="setting-no-track"></label>
+  </div>
+  <div class="settings-section">
+    <h3>Data</h3>
+    <button id="clear-cache" class="setting-btn">Clear Cached Kits</button>
+    <button id="clear-all" class="setting-btn danger">Clear All Data</button>
+    <button id="export-data" class="setting-btn">Export All Data</button>
+  </div>
+</aside>
+
+<div class="settings-panel-overlay" id="settings-overlay"></div>
 
 <main>
   <div id="list"></div>
@@ -30,4 +81,5 @@
 
 <script type="module" src="/src/app.ts"></script>
 </body>
+</html>
 </html>
