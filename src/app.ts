@@ -1,5 +1,17 @@
 import Fuse from 'fuse.js'
 
+interface Kit {
+  title: string
+  description?: string
+  author?: string
+  download?: string
+  file_size?: string
+  category?: string
+  source_db: string
+  categories?: string[]
+  genres?: string[]
+}
+
 declare global {
   interface Window {
     plausible?: (event: string, options?: { props: Record<string, string> }) => void
@@ -31,6 +43,7 @@ interface Settings {
   theme: 'dark' | 'light' | 'system'
   accent: string
   noTrack: boolean
+  pdBypass: boolean
 }
 
 let allKits: Kit[] = []
@@ -45,6 +58,7 @@ let settings: Settings = {
   theme: 'dark',
   accent: '#c8ff00',
   noTrack: false,
+  pdBypass: true,
 }
 
 function track(event: string, props?: Record<string, string>): void {
@@ -160,9 +174,11 @@ function applySettings(): void {
   const t = document.getElementById('setting-theme') as HTMLSelectElement
   const a = document.getElementById('setting-accent') as HTMLInputElement
   const nt = document.getElementById('setting-no-track') as HTMLInputElement
+  const pd = document.getElementById('setting-pd-bypass') as HTMLInputElement
   if (t) t.value = settings.theme
   if (a) a.value = settings.accent
   if (nt) nt.checked = settings.noTrack
+  if (pd) pd.checked = settings.pdBypass
 }
 
 function initSettingsPanel(): void {
@@ -201,7 +217,14 @@ function initSettingsPanel(): void {
     applySettings()
     track('settings_change', { key: 'noTrack', value: String(settings.noTrack) })
   })
-  
+
+  const pdBypassInput = document.getElementById('setting-pd-bypass') as HTMLInputElement
+  pdBypassInput.addEventListener('change', e => {
+    settings.pdBypass = (e.target as HTMLInputElement).checked
+    saveSettings()
+    track('settings_change', { key: 'pdBypass', value: String(settings.pdBypass) })
+  })
+
   document.getElementById('clear-cache')!.addEventListener('click', async () => {
     localStorage.removeItem(MANIFEST_KEY)
     await new Promise<void>(resolve => {
@@ -566,11 +589,11 @@ async function downloadFile(url: string): Promise<void> {
       const r = await fetch(`https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicKey)}`)
       const json = await r.json()
       if (json.href) {
-        window.open(json.href, '_blank', 'noopener,noreferrer')
+        window.location.href = json.href
         return
       }
     } catch {}
-    window.open(url, '_blank', 'noopener,noreferrer')
+    window.location.href = url
   } else if (url.includes('dropbox.com') || url.includes('www.dropbox.com')) {
     try {
       const u = new URL(url)
@@ -584,11 +607,16 @@ async function downloadFile(url: string): Promise<void> {
     }
   } else if (url.includes('pixeldrain.com/u/')) {
     const id = url.split('pixeldrain.com/u/')[1].split('?')[0]
-    const w = window.open(`https://pixeldrain.com/u/${id}`, '_blank')
-    if (w) {
-      setTimeout(() => {
-        w.location.replace(`https://pixeldrain.com/api/file/${id}?download`)
-      }, 2000)
+    if (settings.pdBypass) {
+      const bypassUrl = `https://cdn.pixeldrain.eu.cc/${id}`
+      showPdModal(bypassUrl)
+    } else {
+      const w = window.open(`https://pixeldrain.com/u/${id}`, '_blank')
+      if (w) {
+        setTimeout(() => {
+          w.location.replace(`https://pixeldrain.com/api/file/${id}?download`)
+        }, 2000)
+      }
     }
   } else {
     window.open(url, '_blank', 'noopener,noreferrer')
@@ -597,6 +625,38 @@ async function downloadFile(url: string): Promise<void> {
 
 function esc(s: string): string {
   return (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function showPdModal(url: string, title: string = 'PixelDrain Bypass'): void {
+  const modal = document.getElementById('pd-modal')!
+  const titleEl = modal.querySelector('h3')!
+  const urlInput = document.getElementById('pd-modal-url') as HTMLInputElement
+  const copyBtn = document.getElementById('pd-modal-copy')!
+
+  titleEl.textContent = title
+  urlInput.value = url
+  modal.hidden = false
+  urlInput.select()
+
+  navigator.clipboard.writeText(url)
+  copyBtn.textContent = 'Copied!'
+  setTimeout(() => { copyBtn.textContent = 'Copy' }, 2000)
+
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(url)
+    copyBtn.textContent = 'Copied!'
+    setTimeout(() => { copyBtn.textContent = 'Copy' }, 2000)
+  }
+
+  const close = () => { modal.hidden = true }
+  modal.querySelector('.modal-overlay')!.addEventListener('click', close)
+  modal.querySelector('.modal-close')!.addEventListener('click', close)
+  document.addEventListener('keydown', function escHandler(e) {
+    if (e.key === 'Escape') {
+      close()
+      document.removeEventListener('keydown', escHandler)
+    }
+  })
 }
 
 function showLoading(msg: string = 'Loading...'): void {

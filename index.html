@@ -72,6 +72,10 @@
     <label class="setting"><span>Disable Tracking</span><input type="checkbox" id="setting-no-track"></label>
   </div>
   <div class="settings-section">
+    <h3>Downloads</h3>
+    <label class="setting"><span>PixelDrain Bypass</span><input type="checkbox" id="setting-pd-bypass" checked></label>
+  </div>
+  <div class="settings-section">
     <h3>Data</h3>
     <button id="clear-cache" class="setting-btn">Clear Cached Kits</button>
     <button id="clear-all" class="setting-btn danger">Clear All Data</button>
@@ -87,6 +91,25 @@
   <div id="empty">No kits found.</div>
   <button id="load-more">Load more</button>
 </main>
+
+<div id="pd-modal" class="modal" hidden>
+  <div class="modal-overlay"></div>
+  <div class="modal-content">
+    <button class="modal-close" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <h3>PixelDrain Bypass</h3>
+    <p>Open the link in a new tab to download:</p>
+    <div class="modal-link-wrap">
+      <input type="text" id="pd-modal-url" readonly class="modal-url">
+      <button id="pd-modal-copy" class="modal-copy-btn">Copy</button>
+    </div>
+    <br>
+    <p class="modal-hint">Since PixelDrain is fucking retarded, they blocked "hotlinking" even if you're using a bypass. Just copy this link and open it in a new tab.</p>
+  </div>
+</div>
 
 <script type="module" src="/src/app.ts"></script>
 </body>

@@ -714,3 +714,129 @@ html:has(#search:focus) {
     outline: 2px solid Highlight;
   }
 }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal:not([hidden]) {
+  display: flex;
+}
+
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+}
+
+html.light-mode .modal-overlay {
+  background: rgba(0,0,0,0.3);
+}
+
+.modal-content {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+
+.modal-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.modal-content p {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.modal-link-wrap {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.modal-url {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  font-family: var(--font-sans);
+}
+
+.modal-copy-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-copy-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+}
+
+.modal-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: -8px;
+}
+
+.modal-open-btn {
+  display: block;
+  width: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--bg);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 10px;
+  text-align: center;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+html.light-mode .modal-open-btn {
+  color: #000;
+}
+
+.modal-open-btn:hover {
+  opacity: 0.9;
+}
