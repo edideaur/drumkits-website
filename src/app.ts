@@ -9,7 +9,6 @@ declare global {
 const PAGE = 100
 const PAGE_ANIM_DELAY_MS = 8
 const RENDER_DEBOUNCE_MS = 250
-const SEARCH_DEBOUNCE_MS = 120
 const DB_NAME = 'drumkits'
 const DB_VERSION = 2
 const DB_STORE = 'kits'
@@ -142,6 +141,12 @@ function applySettings(): void {
     : settings.theme === 'dark'
   document.documentElement.classList.toggle('light-mode', !isDark)
   document.documentElement.classList.toggle('dark-mode', isDark)
+
+  if (settings.theme === 'system') {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings)
+  } else {
+    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', applySettings)
+  }
   
   if (!isDark) {
     let accent = settings.accent
@@ -598,7 +603,7 @@ function showLoading(msg: string = 'Loading...'): void {
   if (!loadingEl) {
     loadingEl = document.createElement('div')
     loadingEl.id = 'loading'
-    loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg);color:var(--fg);padding:20px 40px;border-radius:8px;z-index:1000;font-size:18px;'
+    loadingEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg);color:var(--text);padding:20px 40px;border-radius:8px;z-index:1000;font-size:18px;'
     document.body.appendChild(loadingEl)
   }
   loadingEl.textContent = msg
@@ -625,10 +630,10 @@ document.addEventListener('keydown', (e) => {
   
   if (inInput) return
   
-  const rows = document.querySelectorAll<HTMLElement>('.kit-row')
+  const rows = document.querySelectorAll<HTMLElement>('#list .kit-row')
   
   if (rows.length === 0) return
-  
+
   if (e.key === KBD_ARROW_DOWN) {
     e.preventDefault()
     if (selectedIndex < rows.length - 1) {
@@ -636,6 +641,17 @@ document.addEventListener('keydown', (e) => {
       selectedIndex++
       rows[selectedIndex].classList.add('selected')
       rows[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    } else if (shown < filtered.length) {
+      loadMore()
+      setTimeout(() => {
+        const newRows = document.querySelectorAll<HTMLElement>('#list .kit-row')
+        if (selectedIndex < newRows.length - 1) {
+          if (selectedIndex >= 0) newRows[selectedIndex].classList.remove('selected')
+          selectedIndex = newRows.length - 1
+          newRows[selectedIndex].classList.add('selected')
+          newRows[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        }
+      }, 0)
     }
     return
   }

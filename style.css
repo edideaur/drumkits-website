@@ -17,19 +17,14 @@
   --shadow: rgba(0,0,0,0.4);
   
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
   
   --radius-sm: 4px;
   --radius-md: 6px;
-  --radius-lg: 8px;
   
   --transition-fast: 0.1s;
   --transition-normal: 0.15s;
-  --transition-slow: 0.25s;
   
-  --header-height: auto;
   --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html { 
@@ -335,16 +330,6 @@ html.light-mode .badge-src-DRUM_KITS:hover    { background: #fff3cc; border-colo
 html.light-mode .badge-src-KITS4BEATS:hover  { background: #cce0f0; border-color: #0088cc; }
 html.light-mode .badge-src-REDDIT_KITS:hover { background: #ffe0cc; border-color: #ee6600; }
 html.light-mode .badge-src-GMEH:hover        { background: #dcd0f0; border-color: #8866ee; }
-
-.open-icon {
-  color: var(--muted);
-  font-size: 0.85rem;
-  transition: color var(--transition-fast);
-}
-
-.kit-row:hover .open-icon { 
-  color: var(--accent); 
-}
 
 .fave-btn {
   background: none;
@@ -714,48 +699,6 @@ html.light-mode ::selection {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-@keyframes ripple {
-  0% { transform: scale(0); opacity: 1; }
-  100% { transform: scale(2.5); opacity: 0; }
-}
-
-.kit-row[downloading] {
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-.kit-row[downloading]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
-  animation: pulse 1s ease-in-out infinite;
-}
-
-body.loading::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  z-index: 9999;
-  animation: fadeIn 0.2s ease;
 }
 
 html:has(#search:focus) {
