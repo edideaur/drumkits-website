@@ -818,25 +818,3 @@ html.light-mode .modal-overlay {
   color: var(--muted);
   margin-top: -8px;
 }
-
-.modal-open-btn {
-  display: block;
-  width: 100%;
-  background: var(--accent);
-  border-radius: var(--radius-sm);
-  color: var(--bg);
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 10px;
-  text-align: center;
-  text-decoration: none;
-  transition: all var(--transition-fast);
-}
-
-html.light-mode .modal-open-btn {
-  color: #000;
-}
-
-.modal-open-btn:hover {
-  opacity: 0.9;
-}

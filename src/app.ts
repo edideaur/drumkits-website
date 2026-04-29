@@ -144,24 +144,30 @@ function buildFavesFilter(): void {
   })
 }
 
+let systemThemeHandler: (() => void) | null = null
+
 function applySettings(): void {
   document.documentElement.style.setProperty('--accent', settings.accent)
   document.documentElement.style.setProperty('--accent-dim', settings.accent + '15')
   document.documentElement.style.setProperty('--accent-glow', settings.accent + '30')
   document.documentElement.style.scrollBehavior = 'smooth'
-  
-  const isDark = settings.theme === 'system' 
+
+  if (systemThemeHandler) {
+    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeHandler)
+    systemThemeHandler = null
+  }
+
+  const isDark = settings.theme === 'system'
     ? window.matchMedia('(prefers-color-scheme: dark)').matches
     : settings.theme === 'dark'
   document.documentElement.classList.toggle('light-mode', !isDark)
   document.documentElement.classList.toggle('dark-mode', isDark)
 
   if (settings.theme === 'system') {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings)
-  } else {
-    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', applySettings)
+    systemThemeHandler = applySettings
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeHandler)
   }
-  
+
   if (!isDark) {
     let accent = settings.accent
     if (accent === '#c8ff00') accent = '#228800'
