@@ -569,10 +569,9 @@ function loadMore(): void {
 }
 
 async function downloadFile(url: string): Promise<void> {
-  const isExternal = !url.startsWith('https://r2.gangsloni.com')
-  const source = isExternal ? 'external' : 'r2'
+  const source = url.startsWith('https://r2.gangsloni.com') ? 'r2' : 'external'
   track('download', { source, kit: url, filename: url.split('/').pop() ?? 'unknown' })
-  
+
   if (url.startsWith('https://r2.gangsloni.com')) {
     try {
       const key = url.split('https://r2.gangsloni.com/')[1]

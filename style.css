@@ -35,8 +35,6 @@ html {
   scroll-behavior: smooth;
 }
 
-html.dark-mode {}
-
 body {
   background: var(--bg);
   color: var(--text);
