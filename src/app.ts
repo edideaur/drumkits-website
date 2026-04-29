@@ -79,12 +79,32 @@ function saveFaves(): void {
 }
 
 function toggleFave(url: string): void {
-  if (faves.has(url)) faves.delete(url)
+  const isFave = faves.has(url)
+  if (isFave) faves.delete(url)
   else faves.add(url)
   saveFaves()
   track('fave_toggle', { url: url.split('/').pop() ?? 'unknown', action: faves.has(url) ? 'add' : 'remove' })
   buildFavesFilter()
-  render()
+  updateFaveButton(url, faves.has(url))
+  if (activeFave !== 'ALL') {
+    const row = document.querySelector(`.kit-row[data-url="${CSS.escape(url)}"]`)
+    if (row) row.remove()
+    const remaining = document.querySelectorAll('#list .kit-row').length
+    const btn = document.getElementById('load-more')!
+    if (remaining === 0 && activeFave === 'FAVE') {
+      document.getElementById('empty')!.style.display = 'block'
+      btn.style.display = 'none'
+    }
+  }
+}
+
+function updateFaveButton(url: string, isFave: boolean): void {
+  const row = document.querySelector(`.kit-row[data-url="${CSS.escape(url)}"]`)
+  if (!row) return
+  const btn = row.querySelector('.fave-btn') as HTMLButtonElement
+  btn.classList.toggle('active', isFave)
+  btn.innerHTML = isFave ? SVG_FAVE : SVG_FAVE_EMPTY
+  btn.setAttribute('aria-label', isFave ? 'Remove from favorites' : 'Add to favorites')
 }
 
 function buildFavesFilter(): void {
@@ -473,6 +493,7 @@ function loadMore(): void {
   slice.forEach((kit, i) => {
     const a = document.createElement('div')
     a.className = 'kit-row'
+    a.dataset.url = kit.download
     a.style.animationDelay = `${i * PAGE_ANIM_DELAY_MS}ms`
     const isFave = faves.has(kit.download)
     a.innerHTML = `
@@ -555,6 +576,14 @@ async function downloadFile(url: string): Promise<void> {
       window.open(u.toString(), '_blank', 'noopener,noreferrer')
     } catch {
       window.open(url, '_blank', 'noopener,noreferrer')
+    }
+  } else if (url.includes('pixeldrain.com/u/')) {
+    const id = url.split('pixeldrain.com/u/')[1].split('?')[0]
+    const w = window.open(`https://pixeldrain.com/u/${id}`, '_blank')
+    if (w) {
+      setTimeout(() => {
+        w.location.replace(`https://pixeldrain.com/api/file/${id}?download`)
+      }, 2000)
     }
   } else {
     window.open(url, '_blank', 'noopener,noreferrer')

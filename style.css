@@ -438,11 +438,33 @@ html.light-mode .badge-src-GMEH:hover        { background: #dcd0f0; border-color
   transform: scale(0.98);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.header-btn:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
 #settings-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
   background: none;
   border: none;
   color: var(--muted);
