@@ -582,6 +582,7 @@ async function downloadFile(url: string): Promise<void> {
       window.open(url, '_blank', 'noopener,noreferrer')
     }
   } else if (url.includes('disk.yandex') || url.includes('yadi.sk')) {
+    const newWin = window.open('', '_blank')
     try {
       let publicKey = url
       if (url.includes('yadi.sk')) {
@@ -594,11 +595,13 @@ async function downloadFile(url: string): Promise<void> {
       const r = await fetch(`https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicKey)}`)
       const json = await r.json()
       if (json.href) {
-        window.location.href = json.href
+        if (newWin) newWin.location.href = json.href
+        else window.location.href = json.href
         return
       }
     } catch {}
-    window.location.href = url
+    if (newWin) newWin.location.href = url
+    else window.location.href = url
   } else if (url.includes('dropbox.com') || url.includes('www.dropbox.com')) {
     try {
       const u = new URL(url)
