@@ -72,7 +72,9 @@ function loadSettings(): void {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY)
     if (saved) settings = { ...settings, ...JSON.parse(saved) }
-  } catch {}
+  } catch (e) {
+    console.error('Failed to load settings:', e)
+  }
   applySettings()
 }
 
@@ -84,7 +86,9 @@ function loadFaves(): void {
   try {
     const saved = localStorage.getItem(FAVES_KEY)
     if (saved) faves = new Set(JSON.parse(saved))
-  } catch {}
+  } catch (e) {
+    console.error('Failed to load favorites:', e)
+  }
 }
 
 function saveFaves(): void {
@@ -168,21 +172,21 @@ function applySettings(): void {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeHandler)
   }
 
+  let effectiveAccent = settings.accent
   if (!isDark) {
-    let accent = settings.accent
-    if (accent === '#c8ff00') accent = '#228800'
-    else if (accent === '#00ff00') accent = '#00aa00'
-    document.documentElement.style.setProperty('--accent', accent)
+    if (effectiveAccent === '#c8ff00') effectiveAccent = '#228800'
+    else if (effectiveAccent === '#00ff00') effectiveAccent = '#00aa00'
+    document.documentElement.style.setProperty('--accent', effectiveAccent)
     document.documentElement.style.setProperty('--accent-dim', 'rgba(34,136,0,0.1)')
     document.documentElement.style.setProperty('--accent-glow', 'rgba(34,136,0,0.2)')
   }
-  
+
   const t = document.getElementById('setting-theme') as HTMLSelectElement
   const a = document.getElementById('setting-accent') as HTMLInputElement
   const nt = document.getElementById('setting-no-track') as HTMLInputElement
   const pd = document.getElementById('setting-pd-bypass') as HTMLInputElement
   if (t) t.value = settings.theme
-  if (a) a.value = settings.accent
+  if (a) a.value = effectiveAccent
   if (nt) nt.checked = settings.noTrack
   if (pd) pd.checked = settings.pdBypass
 }
@@ -192,14 +196,33 @@ function initSettingsPanel(): void {
   const panel = document.getElementById('settings-panel')!
   const overlay = document.getElementById('settings-overlay')!
   
-  const close = () => { panel.hidden = true }
-  const open = () => { panel.hidden = false }
-  
+  const focusableSelector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  let lastFocusedOutside: HTMLElement | null = null
+
+  const close = () => { panel.hidden = true; lastFocusedOutside?.focus() }
+  const open = () => {
+    lastFocusedOutside = document.activeElement as HTMLElement
+    panel.hidden = false
+    panel.querySelector<HTMLElement>(focusableSelector)?.focus()
+  }
+
+  panel.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return
+    const focusable = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector))
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last?.focus() }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first?.focus() }
+    }
+  })
+
   toggle.addEventListener('click', () => {
     panel.hidden ? open() : close()
     track('settings_open', { open: String(!panel.hidden) })
   })
-  
+
   overlay.addEventListener('click', close)
   document.getElementById('settings-close')!.addEventListener('click', close)
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) close() })
@@ -287,12 +310,13 @@ function initSettingsPanel(): void {
           filtersBuilt = true
           render()
           track('import_data', { count: String(data.kits.length) })
-          alert(`Imported ${data.kits.length} kits successfully!`)
+          showToast(`Imported ${data.kits.length} kits successfully!`)
         } else {
-          alert('Invalid data format: missing kits array')
+          showToast('Invalid data format: missing kits array', 'error')
         }
       } catch (e) {
-        alert('Failed to parse JSON file')
+        console.error('Failed to parse import file:', e)
+        showToast('Failed to parse JSON file', 'error')
       }
     }
     input.click()
@@ -325,10 +349,12 @@ async function idbSave(data: Kit[]): Promise<void> {
     await new Promise((resolve, reject) => {
       const tx = db.transaction(DB_STORE, 'readwrite')
       const req = tx.objectStore(DB_STORE).put(data, DB_KEY)
-      req.onsuccess = () => resolve()
+      req.onsuccess = () => resolve(undefined)
       req.onerror = reject
     })
-  } catch {}
+  } catch (e) {
+    console.error('Failed to save to IndexedDB:', e)
+  }
 }
 
 let filtersBuilt = false
@@ -345,27 +371,28 @@ async function init(): Promise<void> {
     
     if (cached && !needsUpdate) {
       allKits = cached
-      buildFuse()
       buildFilters()
       buildFavesFilter()
       filtersBuilt = true
       hideLoading()
       render()
+      setTimeout(() => buildFuse(), 0)
       return
     }
     
     if (needsUpdate) {
       localStorage.setItem(MANIFEST_KEY, manifest.hash)
     }
-  } catch {
+  } catch (e) {
+    console.warn('Failed to fetch manifest, using cached data:', e)
     if (cached) {
       allKits = cached
-      buildFuse()
       buildFilters()
       buildFavesFilter()
       filtersBuilt = true
       hideLoading()
       render()
+      setTimeout(() => buildFuse(), 0)
       return
     }
   }
@@ -398,21 +425,33 @@ async function streamKits(): Promise<void> {
     const lines = buf.split('\n')
     buf = lines.pop()!
     for (const line of lines) {
-      if (line) {
-        allKits.push(JSON.parse(line) as Kit)
+      if (!line) continue
+      try {
+        const kit = JSON.parse(line) as Kit
+        if (!kit.title || !kit.source_db) { console.warn('Malformed kit skipped:', kit); continue }
+        allKits.push(kit)
         loadedCount++
+      } catch (e) {
+        console.warn('Failed to parse kit line:', e)
       }
     }
     scheduleRender()
   }
 
-  if (buf.trim()) allKits.push(JSON.parse(buf) as Kit)
+  if (buf.trim()) {
+    try {
+      const kit = JSON.parse(buf) as Kit
+      if (kit.title && kit.source_db) allKits.push(kit)
+    } catch (e) {
+      console.warn('Failed to parse trailing kit line:', e)
+    }
+  }
   clearTimeout(timer!)
-  buildFuse()
   buildFilters()
   filtersBuilt = true
   hideLoading()
   render()
+  setTimeout(() => buildFuse(), 0)
   await idbSave(allKits)
 }
 
@@ -427,7 +466,7 @@ function buildFuse(): void {
 
 function buildFilters(): void {
   if (filtersBuilt) return
-  const cats = ['ALL', ...[...new Set(allKits.map(k => k.category).filter(Boolean))].sort()]
+  const cats = ['ALL', ...[...new Set(allKits.map(k => k.category).filter((c): c is string => !!c))].sort()]
   const wrap = document.getElementById('filters')!
   wrap.innerHTML = ''
   cats.forEach(cat => {
@@ -470,6 +509,18 @@ function setSource(src: string, btn: HTMLButtonElement): void {
   render()
 }
 
+function clearAllFilters(): void {
+  activeCategory = 'ALL'
+  activeSource = 'ALL'
+  activeFave = 'ALL'
+  ;(document.getElementById('search') as HTMLInputElement).value = ''
+  filtersBuilt = false
+  buildFilters()
+  buildFavesFilter()
+  filtersBuilt = true
+  render()
+}
+
 let debounceTimer: ReturnType<typeof setTimeout>
 document.getElementById('search')!.addEventListener('input', () => {
   clearTimeout(debounceTimer)
@@ -477,7 +528,7 @@ document.getElementById('search')!.addEventListener('input', () => {
     const q = (document.getElementById('search') as HTMLInputElement).value.trim()
     if (q) track('search', { query: q, category: activeCategory, source: activeSource })
     render()
-  }, 120)
+  }, RENDER_DEBOUNCE_MS)
 })
 
 document.getElementById('search-clear')!.addEventListener('click', () => {
@@ -486,13 +537,10 @@ document.getElementById('search-clear')!.addEventListener('click', () => {
   render()
 })
 
-const sentinel = document.getElementById('load-more')!
 new IntersectionObserver(entries => {
-  if (entries[0].isIntersecting && shown < filtered.length) {
-    track('load_more', { shown: String(shown), remaining: String(filtered.length - shown) })
-    loadMore()
-  }
-}, { rootMargin: '200px' }).observe(sentinel)
+  if (entries[0]?.isIntersecting) loadMore()
+}, { rootMargin: '400px' }).observe(document.getElementById('list-sentinel')!)
+
 
 function render(): void {
   const q = (document.getElementById('search') as HTMLInputElement).value.trim()
@@ -512,60 +560,93 @@ function render(): void {
 
   const catFiltered = activeCategory === 'ALL' ? base : base.filter(k => k.category === activeCategory)
   const srcFiltered = activeSource === 'ALL' ? catFiltered : catFiltered.filter(k => k.source_db === activeSource)
-  filtered = activeFave === 'ALL' ? srcFiltered : srcFiltered.filter(k => faves.has(k.download))
-  shown = 0
-  document.getElementById('list')!.innerHTML = ''
+  filtered = activeFave === 'ALL' ? srcFiltered : srcFiltered.filter(k => k.download != null && faves.has(k.download))
+  selectedIndex = -1
+
+  const list = document.getElementById('list')!
+  list.innerHTML = ''
   document.getElementById('count')!.textContent = filtered.length.toLocaleString() + ' kits'
-  document.getElementById('empty')!.style.display = filtered.length ? 'none' : 'block'
+
+  const emptyEl = document.getElementById('empty')!
+  if (filtered.length === 0) {
+    const hasFilters = q || activeCategory !== 'ALL' || activeSource !== 'ALL' || activeFave !== 'ALL'
+    if (hasFilters) {
+      emptyEl.innerHTML = 'No kits found. <button class="empty-clear-btn">Clear filters</button>'
+      emptyEl.querySelector('.empty-clear-btn')!.addEventListener('click', clearAllFilters)
+    } else {
+      emptyEl.textContent = 'No kits found.'
+    }
+    emptyEl.style.display = 'block'
+    track('render', { total: '0', category: activeCategory, source: activeSource })
+    return
+  }
+  emptyEl.style.display = 'none'
   track('render', { total: String(filtered.length), category: activeCategory, source: activeSource })
+  shown = 0
   loadMore()
 }
 
-function loadMore(): void {
-  const list = document.getElementById('list')!
-  const slice = filtered.slice(shown, shown + PAGE)
-  slice.forEach((kit, i) => {
-    const a = document.createElement('div')
-    a.className = 'kit-row'
-    a.dataset.url = kit.download
-    a.style.animationDelay = `${i * PAGE_ANIM_DELAY_MS}ms`
-    const isFave = faves.has(kit.download)
-    a.innerHTML = `
-      <div class="kit-left">
-        <div class="kit-title">${esc(kit.title)}</div>
-        ${(kit.author || kit.file_size) ? `<div class="kit-desc">${[kit.author, kit.file_size].filter((x): x is string => !!x).map(esc).join(' · ')}</div>` : kit.description ? `<div class="kit-desc">${esc(kit.description)}</div>` : ''}
-      </div>
-      <div class="kit-right">
-        ${kit.category ? `<span class="badge badge-cat">${esc(kit.category)}</span>` : ''}
-        <span class="badge badge-src-${esc(kit.source_db)}">${esc(kit.source_db)}</span>
-        <button class="fave-btn${isFave ? ' active' : ''}" aria-label="${isFave ? 'Remove from favorites' : 'Add to favorites'}">
-          ${isFave ? SVG_FAVE : SVG_FAVE_EMPTY}
-        </button>
-        <a class="open-link" href="${kit.download || '#'}" rel="noopener noreferrer" aria-label="Download">
-          ${SVG_DOWNLOAD}
-        </a>
-      </div>`
-    const favBtn = a.querySelector('.fave-btn')!
-    favBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleFave(kit.download) })
-    const link = a.querySelector('.open-link') as HTMLAnchorElement
-    if (kit.download) {
-      a.style.cursor = 'pointer'
-      a.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('.fave-btn')) return
-        e.preventDefault()
-        downloadFile(kit.download)
-      })
-    } else {
-      link.style.pointerEvents = 'none'
-      link.style.opacity = '0.3'
-    }
-    list.appendChild(a)
+function makeKitRow(kit: Kit, i: number): HTMLElement {
+  const a = document.createElement('div')
+  a.className = 'kit-row'
+  if (kit.download) a.dataset['url'] = kit.download
+  if (i < PAGE) a.style.animationDelay = `${i * PAGE_ANIM_DELAY_MS}ms`
+  const isFave = kit.download != null && faves.has(kit.download)
+  a.innerHTML = `
+    <div class="kit-left">
+      <div class="kit-title">${esc(kit.title)}</div>
+      ${(kit.author || kit.file_size) ? `<div class="kit-desc">${[kit.author, kit.file_size].filter((x): x is string => !!x).map(esc).join(' · ')}</div>` : kit.description ? `<div class="kit-desc">${esc(kit.description)}</div>` : ''}
+    </div>
+    <div class="kit-right">
+      ${kit.category ? `<span class="badge badge-cat">${esc(kit.category)}</span>` : ''}
+      <span class="badge badge-src-${kit.source_db.replace(/[^a-z0-9_-]/gi, '')}">${esc(kit.source_db)}</span>
+      <button class="fave-btn${isFave ? ' active' : ''}" aria-label="${isFave ? 'Remove from favorites' : 'Add to favorites'}">
+        ${isFave ? SVG_FAVE : SVG_FAVE_EMPTY}
+      </button>
+      <a class="open-link" href="${kit.download || '#'}" rel="noopener noreferrer" aria-label="Download">
+        ${SVG_DOWNLOAD}
+      </a>
+    </div>`
+  a.querySelector('.fave-btn')!.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation()
+    if (kit.download) toggleFave(kit.download)
   })
-  shown += slice.length
-  const btn = document.getElementById('load-more')!
-  btn.style.display = shown < filtered.length ? 'block' : 'none'
-  if (shown < filtered.length)
-    btn.textContent = `Load more (${(filtered.length - shown).toLocaleString()} remaining)`
+  const link = a.querySelector('.open-link') as HTMLAnchorElement
+  if (kit.download) {
+    const dl = kit.download
+    a.style.cursor = 'pointer'
+    a.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('.fave-btn')) return
+      e.preventDefault()
+      downloadFile(dl)
+    })
+  } else {
+    link.style.pointerEvents = 'none'
+    link.style.opacity = '0.3'
+  }
+  return a
+}
+
+function loadMore(): void {
+  if (shown >= filtered.length) return
+  const list = document.getElementById('list')!
+  const fragment = document.createDocumentFragment()
+  const end = Math.min(shown + PAGE, filtered.length)
+  for (let i = shown; i < end; i++) {
+    fragment.appendChild(makeKitRow(filtered[i]!, i))
+  }
+  list.appendChild(fragment)
+  shown = end
+}
+
+function openUrl(url: string): void {
+  const a = document.createElement('a')
+  a.href = url
+  a.target = '_blank'
+  a.rel = 'noopener noreferrer'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 
 async function downloadFile(url: string): Promise<void> {
@@ -582,26 +663,25 @@ async function downloadFile(url: string): Promise<void> {
       window.open(url, '_blank', 'noopener,noreferrer')
     }
   } else if (url.includes('disk.yandex') || url.includes('yadi.sk')) {
-    const newWin = window.open('', '_blank')
     try {
       let publicKey = url
       if (url.includes('yadi.sk')) {
-        publicKey = 'https://yadi.sk/d/' + url.split('yadi.sk/d/')[1].split('?')[0]
+        publicKey = 'https://yadi.sk/d/' + url.split('yadi.sk/d/')[1]!.split('?')[0]
       } else if (url.includes('disk.yandex.com')) {
-        publicKey = 'https://disk.yandex.com/d/' + url.split('disk.yandex.com/d/')[1].split('?')[0]
+        publicKey = 'https://disk.yandex.com/d/' + url.split('disk.yandex.com/d/')[1]!.split('?')[0]
       } else if (url.includes('disk.yandex.ru')) {
-        publicKey = 'https://disk.yandex.ru/d/' + url.split('disk.yandex.ru/d/')[1].split('?')[0]
+        publicKey = 'https://disk.yandex.ru/d/' + url.split('disk.yandex.ru/d/')[1]!.split('?')[0]
       }
       const r = await fetch(`https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicKey)}`)
       const json = await r.json()
       if (json.href) {
-        if (newWin) newWin.location.href = json.href
-        else window.location.href = json.href
+        openUrl(json.href)
         return
       }
-    } catch {}
-    if (newWin) newWin.location.href = url
-    else window.location.href = url
+    } catch (e) {
+      console.warn('Yandex API failed, falling back to direct URL:', e)
+    }
+    openUrl(url)
   } else if (url.includes('dropbox.com') || url.includes('www.dropbox.com')) {
     try {
       const u = new URL(url)
@@ -614,7 +694,7 @@ async function downloadFile(url: string): Promise<void> {
       window.open(url, '_blank', 'noopener,noreferrer')
     }
   } else if (url.includes('pixeldrain.com/u/')) {
-    const id = url.split('pixeldrain.com/u/')[1].split('?')[0]
+    const id = url.split('pixeldrain.com/u/')[1]!.split('?')[0]
     if (settings.pdBypass) {
       const bypassUrl = `https://cdn.pixeldrain.eu.cc/${id}`
       showPdModal(bypassUrl)
@@ -682,10 +762,27 @@ function hideLoading(): void {
   if (loadingEl) loadingEl.hidden = true
 }
 
+function showToast(message: string, type: 'success' | 'error' = 'success'): void {
+  const toast = document.createElement('div')
+  toast.setAttribute('role', 'alert')
+  toast.setAttribute('aria-live', 'polite')
+  toast.textContent = message
+  const bg = type === 'error' ? '#c0392b' : 'var(--accent)'
+  const color = type === 'error' ? '#fff' : '#000'
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${bg};color:${color};padding:10px 20px;border-radius:6px;z-index:9999;font-size:14px;font-weight:500;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.3);`
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 4000)
+}
+
 loadSettings()
 loadFaves()
 initSettingsPanel()
-init().then(() => track('page_load', { kits_loaded: String(allKits.length) }))
+init()
+  .then(() => track('page_load', { kits_loaded: String(allKits.length) }))
+  .catch(() => {
+    hideLoading()
+    showToast('Failed to load kits. Please refresh the page.', 'error')
+  })
 
 const unloadHandler = () => track('page_unload')
 addEventListener('pagehide', unloadHandler, { once: true })
@@ -693,9 +790,17 @@ addEventListener('pagehide', unloadHandler, { once: true })
 let selectedIndex = -1
 
 document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    const searchEl = document.getElementById('search') as HTMLInputElement
+    searchEl.focus()
+    searchEl.select()
+    return
+  }
+
   const target = e.target as HTMLElement
   const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
-  
+
   if (inInput) return
   
   const rows = document.querySelectorAll<HTMLElement>('#list .kit-row')
@@ -705,34 +810,32 @@ document.addEventListener('keydown', (e) => {
   if (e.key === KBD_ARROW_DOWN) {
     e.preventDefault()
     if (selectedIndex < rows.length - 1) {
-      if (selectedIndex >= 0) rows[selectedIndex].classList.remove('selected')
+      rows[selectedIndex]?.classList.remove('selected')
       selectedIndex++
-      rows[selectedIndex].classList.add('selected')
-      rows[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      rows[selectedIndex]?.classList.add('selected')
+      rows[selectedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     } else if (shown < filtered.length) {
       loadMore()
       setTimeout(() => {
         const newRows = document.querySelectorAll<HTMLElement>('#list .kit-row')
-        if (selectedIndex < newRows.length - 1) {
-          if (selectedIndex >= 0) newRows[selectedIndex].classList.remove('selected')
-          selectedIndex = newRows.length - 1
-          newRows[selectedIndex].classList.add('selected')
-          newRows[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-        }
+        rows[selectedIndex]?.classList.remove('selected')
+        selectedIndex = newRows.length - 1
+        newRows[selectedIndex]?.classList.add('selected')
+        newRows[selectedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       }, 0)
     }
     return
   }
-  
+
   if (e.key === KBD_ARROW_UP) {
     e.preventDefault()
     if (selectedIndex > 0) {
-      rows[selectedIndex].classList.remove('selected')
+      rows[selectedIndex]?.classList.remove('selected')
       selectedIndex--
-      rows[selectedIndex].classList.add('selected')
-      rows[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      rows[selectedIndex]?.classList.add('selected')
+      rows[selectedIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     } else if (selectedIndex === 0) {
-      rows[0].classList.remove('selected')
+      rows[0]?.classList.remove('selected')
       selectedIndex = -1
     }
     return

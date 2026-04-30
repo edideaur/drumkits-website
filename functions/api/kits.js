@@ -13,7 +13,21 @@ const BROWSER_HEADERS = {
   "referer": "https://www.drumkits.site/",
 };
 
+function getAllowedOrigin(request) {
+  const origin = request.headers.get("origin") ?? "";
+  if (
+    origin === "https://yekub2026.com" ||
+    /^https:\/\/[a-z0-9-]+\.yekub2026\.com$/.test(origin)
+  ) {
+    return origin;
+  }
+  return null;
+}
+
 export async function onRequestGet({ request }) {
+  const allowedOrigin = getAllowedOrigin(request);
+  if (!allowedOrigin) return new Response("Forbidden", { status: 403 });
+
   const incoming = new URL(request.url);
   const target = new URL("https://www.drumkits.site/api/kits");
   target.search = incoming.search;
@@ -27,6 +41,20 @@ export async function onRequestGet({ request }) {
   const resp = await fetch(target.toString(), { headers });
   return new Response(resp.body, {
     status: resp.status,
-    headers: { "content-type": "application/json", "access-control-allow-origin": "*" },
+    headers: { "content-type": "application/json", "access-control-allow-origin": allowedOrigin },
+  });
+}
+
+export async function onRequestOptions({ request }) {
+  const allowedOrigin = getAllowedOrigin(request);
+  if (!allowedOrigin) return new Response("Forbidden", { status: 403 });
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "access-control-allow-origin": allowedOrigin,
+      "access-control-allow-methods": "GET, OPTIONS",
+      "access-control-allow-headers": "x-request-signature, x-request-timestamp",
+      "access-control-max-age": "86400",
+    },
   });
 }
