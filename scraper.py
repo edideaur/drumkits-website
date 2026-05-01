@@ -1,7 +1,9 @@
 import argparse
 import hashlib
 import json
+import os
 import time
+from datetime import datetime, timezone
 
 import requests
 
@@ -195,6 +197,45 @@ def load_existing() -> dict[str, dict]:
     return existing
 
 
+def send_webhook(new_kits: list) -> None:
+    url = os.environ.get("WEBHOOK_URL")
+    if not url or not new_kits:
+        return
+
+    def build_embed(kit: dict) -> dict:
+        title = kit.get("title") or "Untitled"
+        download = kit.get("download") or ""
+
+        lines = []
+        if author := kit.get("author"):
+            lines.append(f"**Author:** {author}")
+        if category := kit.get("category"):
+            lines.append(f"**Category:** {category}")
+        if size := kit.get("file_size"):
+            lines.append(f"**Size:** {size}")
+        if genres := kit.get("genres"):
+            lines.append(f"**Genres:** {', '.join(genres)}")
+
+        return {
+            "title": title[:256],
+            "description": "\n".join(lines) or None,
+            "url": download or None,
+            "color": 0x4F46E5,
+        }
+
+    # Discord allows max 10 embeds per message — batch accordingly
+    for i in range(0, len(new_kits), 10):
+        batch = new_kits[i:i + 10]
+        payload = {"embeds": [build_embed(kit) for kit in batch]}
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            resp.raise_for_status()
+            print(f"Webhook sent batch {i // 10 + 1} ({resp.status_code})")
+        except requests.RequestException as e:
+            print(f"Webhook failed: {e}")
+            break
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape drumkits.site databases")
     parser.add_argument(
@@ -242,6 +283,8 @@ def main():
     with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
         json.dump(manifest, f)
     print(f"Updated manifest: {file_hash}")
+
+    send_webhook(new_kits)
 
 
 if __name__ == "__main__":
