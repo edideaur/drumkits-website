@@ -545,6 +545,24 @@ html.light-mode .settings-panel-overlay {
   background: var(--surface);
 }
 
+.settings-disclaimer {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.settings-disclaimer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.settings-disclaimer a:hover {
+  text-decoration: underline;
+}
+
 .setting {
   display: flex;
   align-items: center;

@@ -654,13 +654,17 @@ async function downloadFile(url: string): Promise<void> {
   track('download', { source, kit: url, filename: url.split('/').pop() ?? 'unknown' })
 
   if (url.startsWith('https://r2.gangsloni.com')) {
+    const win = window.open('', '_blank', 'noopener,noreferrer')
     try {
       const key = url.split('https://r2.gangsloni.com/')[1]
       const r = await fetch(`https://api.g-meh.com/getURL?key=${key}`)
       const json = await r.json()
-      window.open(json.url, '_blank', 'noopener,noreferrer')
+      const dest = json.url ?? url
+      if (win) win.location.href = dest
+      else window.open(dest, '_blank', 'noopener,noreferrer')
     } catch {
-      window.open(url, '_blank', 'noopener,noreferrer')
+      if (win) win.location.href = url
+      else window.open(url, '_blank', 'noopener,noreferrer')
     }
   } else if (url.includes('disk.yandex') || url.includes('yadi.sk')) {
     try {
@@ -673,15 +677,22 @@ async function downloadFile(url: string): Promise<void> {
         publicKey = 'https://disk.yandex.ru/d/' + url.split('disk.yandex.ru/d/')[1]!.split('?')[0]
       }
       const r = await fetch(`https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicKey)}`)
+      if (!r.ok) throw new Error(`Yandex API ${r.status}`)
       const json = await r.json()
-      if (json.href) {
-        openUrl(json.href)
-        return
-      }
+      if (!json.href?.startsWith('https://')) throw new Error('No href')
+      const file = await fetch(json.href)
+      if (!file.ok) throw new Error(`Download ${file.status}`)
+      const blob = await file.blob()
+      const filename = new URL(json.href).searchParams.get('filename') || url.split('/').pop() || 'kit.zip'
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000)
     } catch (e) {
-      console.warn('Yandex API failed, falling back to direct URL:', e)
+      console.warn('Yandex download failed:', e)
+      openUrl(url)
     }
-    openUrl(url)
   } else if (url.includes('dropbox.com') || url.includes('www.dropbox.com')) {
     try {
       const u = new URL(url)
