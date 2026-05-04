@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import time
+import traceback
 from datetime import datetime, timezone
 
 import requests
@@ -22,6 +23,7 @@ SESSION.headers.update({
     "accept": "*/*",
     "accept-language": "en-US,en;q=0.9",
     "cache-control": "no-cache",
+    "origin": "https://kits.yekub2026.com",
     "pragma": "no-cache",
     "priority": "u=1, i",
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
@@ -42,12 +44,15 @@ def get_timestamp() -> str:
 def fetch_signature(timestamp: str) -> str | None:
     try:
         print(f"  Fetching signature for timestamp {timestamp}...")
+        print(f"    -> POST {SIGN_URL} with json={timestamp}")
         resp = SESSION.post(
             SIGN_URL,
             headers={"content-type": "application/json"},
             json={"timestamp": timestamp},
             timeout=15,
         )
+        print(f"    <- status={resp.status_code}")
+        print(f"    <- response body: {resp.text[:500]}")
         resp.raise_for_status()
         data = resp.json()
         signature = (
@@ -58,9 +63,11 @@ def fetch_signature(timestamp: str) -> str | None:
         )
         if not signature:
             print(f"  Unexpected sign-request response: {data}")
+        print(f"  Got signature: {signature[:30] if signature else 'None'}...")
         return signature
-    except requests.RequestException as e:
-        print(f"  Failed to fetch signature: {e}")
+    except Exception:
+        print(f"  Failed to fetch signature:")
+        traceback.print_exc()
         return None
 
 
@@ -71,14 +78,21 @@ def fetch_page(offset: int, db: str, signature: str, timestamp: str) -> tuple[di
         "x-request-signature": signature,
     }
     try:
+        print(f"    -> GET {BASE_URL} with params={params}")
+        print(f"    -> headers: x-request-timestamp={timestamp[:20]}..., x-request-signature={signature[:20] if signature else 'None'}...")
         resp = SESSION.get(BASE_URL, params=params, headers=headers, timeout=15)
+        print(f"    <- status={resp.status_code}")
+        print(f"    <- headers: {dict(resp.headers)}")
         if resp.status_code in (401, 403):
             print(f"  Auth error ({resp.status_code}), will refresh signature.")
             return None, True
+        if resp.status_code != 200:
+            print(f"  Response body: {resp.text[:500]}")
         resp.raise_for_status()
         return resp.json(), False
-    except requests.RequestException as e:
-        print(f"  Request error at offset {offset}: {e}")
+    except Exception:
+        print(f"  Request error at offset {offset}:")
+        traceback.print_exc()
         return None, False
 
 
@@ -153,8 +167,9 @@ def scrape_gmeh(tab: str) -> list:
         resp = SESSION.get(url, timeout=30)
         resp.raise_for_status()
         items = resp.json()
-    except requests.RequestException as e:
-        print(f"  Failed: {e}")
+    except Exception:
+        print(f"  Failed:")
+        traceback.print_exc()
         return []
 
     kits = []
@@ -231,8 +246,9 @@ def send_webhook(new_kits: list) -> None:
             resp = requests.post(url, json=payload, timeout=10)
             resp.raise_for_status()
             print(f"Webhook sent batch {i // 10 + 1} ({resp.status_code})")
-        except requests.RequestException as e:
-            print(f"Webhook failed: {e}")
+        except Exception:
+            print(f"Webhook failed:")
+            traceback.print_exc()
             break
 
 
@@ -288,4 +304,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        traceback.print_exc()
+        exit(1)
